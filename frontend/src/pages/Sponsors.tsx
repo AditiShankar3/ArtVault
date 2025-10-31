@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Building2, Phone, Mail } from "lucide-react";
+import { Building2, Phone, Mail, Loader2 } from "lucide-react"; // Added Loader2
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,14 +14,60 @@ const Sponsors = () => {
     contact: "",
     email: ""
   });
+  // Add a loading state
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // --- ⬇️ MODIFIED SUBMIT HANDLER ⬇️ ---
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Sponsorship Request Submitted!",
-      description: "We'll contact you shortly with details.",
-    });
-    setSponsorData({ name: "", type: "", contact: "", email: "" });
+    setIsLoading(true); // Start loading
+
+    try {
+      const response = await fetch('http://localhost:3001/api/sponsors', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(sponsorData), // Send the form data
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        // Handle server-side errors
+        throw new Error(result.error || 'Failed to submit request');
+      }
+
+      // Success!
+      toast({
+        title: "Sponsorship Request Submitted!",
+        description: "We'll contact you shortly with details.",
+      });
+      // Clear the form
+      setSponsorData({ name: "", type: "", contact: "", email: "" });
+
+    } catch (error) {
+      // Handle fetch errors (e.g., server is down)
+      console.error("Submission error:", error);
+      toast({
+        title: "Error",
+        description: (error as Error).message || "Could not submit request. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false); // Stop loading
+    }
+  };
+  // --- ⬆️ END OF MODIFICATIONS ⬆️ ---
+
+  // Helper function to update state
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    // Use input 'id' to update the correct state key
+    setSponsorData(prevData => ({
+      ...prevData,
+      [id]: value, 
+    }));
   };
 
   return (
@@ -35,38 +81,41 @@ const Sponsors = () => {
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
+          {/* Sponsorship Benefits Card (No changes) */}
           <Card className="shadow-elegant">
             <CardHeader>
               <CardTitle className="font-serif text-2xl">Sponsorship Benefits</CardTitle>
               <CardDescription>Join us in preserving history</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <Building2 className="h-5 w-5 text-accent mt-0.5" />
-                  <div>
-                    <h3 className="font-semibold">Brand Visibility</h3>
-                    <p className="text-sm text-muted-foreground">Featured placement in our exhibitions and promotional materials</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Building2 className="h-5 w-5 text-accent mt-0.5" />
-                  <div>
-                    <h3 className="font-semibold">Cultural Impact</h3>
-                    <p className="text-sm text-muted-foreground">Contribute to education and preservation of cultural heritage</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Building2 className="h-5 w-5 text-accent mt-0.5" />
-                  <div>
-                    <h3 className="font-semibold">Exclusive Access</h3>
-                    <p className="text-sm text-muted-foreground">VIP invitations to exhibition openings and special events</p>
-                  </div>
-                </div>
-              </div>
+               {/* ... all your benefit items ... */}
+                <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <Building2 className="h-5 w-5 text-accent mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold">Brand Visibility</h3>
+                    <p className="text-sm text-muted-foreground">Featured placement in our exhibitions and promotional materials</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+            .     <Building2 className="h-5 w-5 text-accent mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold">Cultural Impact</h3>
+                    <p className="text-sm text-muted-foreground">Contribute to education and preservation of cultural heritage</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Building2 className="h-5 w-5 text-accent mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold">Exclusive Access</h3>
+          _       <p className="text-sm text-muted-foreground">VIP invitations to exhibition openings and special events</p>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
+          {/* Registration Form Card (Updated) */}
           <Card className="shadow-elegant">
             <CardHeader>
               <CardTitle className="font-serif text-2xl">Register Your Company</CardTitle>
@@ -75,23 +124,25 @@ const Sponsors = () => {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="company-name">Company Name</Label>
+                  <Label htmlFor="name">Company Name</Label>
                   <Input
-                    id="company-name"
+                    id="name" // ID should match the state key
                     value={sponsorData.name}
-                    onChange={(e) => setSponsorData({...sponsorData, name: e.target.value})}
+                    onChange={handleChange}
                     placeholder="Your organization name"
                     required
+                    disabled={isLoading}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="company-type">Organization Type</Label>
+                  <Label htmlFor="type">Organization Type</Label>
                   <Input
-                    id="company-type"
+                    id="type" // ID should match the state key
                     value={sponsorData.type}
-                    onChange={(e) => setSponsorData({...sponsorData, type: e.target.value})}
+                    onChange={handleChange}
                     placeholder="e.g., Corporate, Foundation, Private"
                     required
+                    disabled={isLoading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -99,12 +150,13 @@ const Sponsors = () => {
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      id="contact"
+                      id="contact" // ID should match the state key
                       value={sponsorData.contact}
-                      onChange={(e) => setSponsorData({...sponsorData, contact: e.target.value})}
+                      onChange={handleChange}
                       placeholder="+91 XXXXX XXXXX"
                       className="pl-10"
                       required
+                      disabled={isLoading}
                     />
                   </div>
                 </div>
@@ -113,17 +165,30 @@ const Sponsors = () => {
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      id="email"
+                      id="email" // ID should match the state key
                       type="email"
                       value={sponsorData.email}
-                      onChange={(e) => setSponsorData({...sponsorData, email: e.target.value})}
+                      onChange={handleChange}
                       placeholder="contact@company.com"
                       className="pl-10"
                       required
+                      disabled={isLoading}
                     />
                   </div>
                 </div>
-                <Button type="submit" className="w-full">Submit Sponsorship Request</Button>
+                
+                {/* Updated Button with loading state */}
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    "Submit Sponsorship Request"
+                  )}
+                </Button>
+
               </form>
             </CardContent>
           </Card>
