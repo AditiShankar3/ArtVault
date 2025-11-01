@@ -11,7 +11,7 @@ const port = 3001; // This will be our backend server port
 const dbConfig = {
   host: 'localhost', // e.g., 'localhost'
   user: 'museum',
-  password: 'ArtVault',
+  password: '123',
   database: 'museum_db',
 };
 
@@ -56,7 +56,7 @@ app.get('/api/artifacts', async (req, res) => {
     `;
     
     // Add wildcards to the search term
-    const searchTermWithWildcards = `%${search}%`;
+    const searchTermWithWildcards = `search%`;
     
     // 3. Updated placeholders to match the 3 columns
     const [rows] = await connection.execute(sql, [

@@ -13,7 +13,7 @@ const Index = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/artifacts?search=${encodeURIComponent(searchQuery)}`);
+      navigate(`/search?search=${encodeURIComponent(searchQuery)}`);
     }
   };
 
