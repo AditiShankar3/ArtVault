@@ -9,7 +9,7 @@ import Exhibitions from "./pages/Exhibitions";
 import Museums from "./pages/Museums";
 import Sponsors from "./pages/Sponsors";
 import NotFound from "./pages/NotFound";
-
+import SearchResultsPage from "./pages/SearchResults"; // Adjust path as needed
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -24,6 +24,7 @@ const App = () => (
           <Route path="/exhibitions" element={<Exhibitions />} />
           <Route path="/museums" element={<Museums />} />
           <Route path="/sponsors" element={<Sponsors />} />
+          <Route path="/search" element={<SearchResultsPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

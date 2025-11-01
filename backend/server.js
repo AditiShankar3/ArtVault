@@ -33,46 +33,125 @@ app.use(express.json()); // To parse any JSON in request bodies (if you add POST
 
 // --- API Routes ---
 
+// In server.js
+
 /**
  * @route GET /api/artifacts
  * @desc Get all artifacts, with optional search.
  * @query search (string) - A search term to filter artifacts.
  */
 app.get('/api/artifacts', async (req, res) => {
-  // Get the search term from the query parameters, default to an empty string
+  // Get the search term, default to an empty string
   const { search = '' } = req.query;
+  
+  let connection;
 
   try {
-    const connection = await pool.getConnection();
+    connection = await pool.getConnection();
 
-    // 1. Changed table name from 'artifacts' to 'artifact'
-    // 2. Removed 'museum' and 'artist' from WHERE clause because
-    //    they are not in the 'artifact' table.
-    const sql = `
-      SELECT * FROM artifact 
-      WHERE name LIKE ? 
-         OR origin LIKE ? 
-         OR era LIKE ?
-    `;
+    let sql;
+    let queryParams = [];
+
+    if (search) {
+      // --- FIX 1: This query only runs if 'search' is NOT empty ---
+      sql = `
+        SELECT * FROM artifact 
+        WHERE name LIKE ? 
+           OR origin LIKE ? 
+           OR era LIKE ?
+      `;
+      
+      // --- FIX 2: This fixes your "starts with" requirement (e.g., "ra%") ---
+      const searchTermWithWildcards = `${search}%`;
+      queryParams = [searchTermWithWildcards, searchTermWithWildcards, searchTermWithWildcards];
+
+    } else {
+      // --- FIX 3: If 'search' is empty, get ALL artifacts ---
+      sql = 'SELECT * FROM artifact';
+    }
+
+    const [rows] = await connection.execute(sql, queryParams);
     
-    // Add wildcards to the search term
-    const searchTermWithWildcards = `search%`;
-    
-    // 3. Updated placeholders to match the 3 columns
-    const [rows] = await connection.execute(sql, [
-      searchTermWithWildcards,
-      searchTermWithWildcards,
-      searchTermWithWildcards,
-    ]);
+    connection.release();
+    res.json(rows);
 
-    connection.release(); // Release the connection back to the pool
-
-    res.json(rows); // Send the results back as JSON
   } catch (err) {
     console.error('Error fetching artifacts from database:', err);
+    if (connection) connection.release(); // Make sure to release on error
     res.status(500).json({ error: 'Failed to fetch data from database' });
   }
 });
+
+// In server.js
+
+// ... (after your existing /api/artifacts route)
+
+/**
+ * @route GET /api/search
+ * @desc Perform a global search across artifacts, museums, and exhibitions.
+ * @query q (string) - The global search term.
+ */
+app.get('/api/search', async (req, res) => {
+  const { q = '' } = req.query;
+
+  // Use the "starts with" logic (e.g., "ra%") as you requested
+  const searchTerm = `${q}%`; 
+
+  if (!q) {
+    return res.json({ artifacts: [], museums: [], exhibitions: [] });
+  }
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+
+    // 1. Artifacts Query
+    const artifactSql = `
+      SELECT artifact_id, name, origin, era, museum_id 
+      FROM artifact 
+      WHERE name LIKE ? OR origin LIKE ? OR era LIKE ?
+    `;
+    const artifactQuery = connection.execute(artifactSql, [searchTerm, searchTerm, searchTerm]);
+
+    // 2. Museums Query
+    const museumSql = `
+      SELECT museum_id, name, city, state, type 
+      FROM Museum 
+      WHERE name LIKE ? OR city LIKE ? OR type LIKE ?
+    `;
+    const museumQuery = connection.execute(museumSql, [searchTerm, searchTerm, searchTerm]);
+
+    // 3. Exhibitions Query (joining with museum to show its name)
+    const exhibitionSql = `
+      SELECT e.exhibition_id, e.name, e.theme, e.start_date, e.end_date, m.name AS museum_name
+      FROM exhibition e
+      JOIN Museum m ON e.museum_id = m.museum_id
+      WHERE e.name LIKE ? OR e.theme LIKE ? OR m.name LIKE ?
+    `;
+    const exhibitionQuery = connection.execute(exhibitionSql, [searchTerm, searchTerm, searchTerm]);
+
+    // Run all 3 queries in parallel for speed
+    const [
+      [artifacts],
+      [museums],
+      [exhibitions]
+    ] = await Promise.all([
+      artifactQuery,
+      museumQuery,
+      exhibitionQuery
+    ]);
+
+    res.json({ artifacts, museums, exhibitions });
+
+  } catch (err) {
+    console.error('Error performing global search:', err);
+    res.status(500).json({ error: 'Failed to execute global search' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// ... (rest of your routes)
 
 // ⬇️ ADD THIS NEW ROUTE FOR MUSEUMS ⬇️
 app.get('/api/museums', async (req, res) => {

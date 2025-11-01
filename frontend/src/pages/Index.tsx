@@ -13,7 +13,9 @@ const Index = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/search?search=${encodeURIComponent(searchQuery)}`);
+      // --- ⬇️ THIS IS THE NEW FIX ⬇️ ---
+      // Navigate to a dedicated search results page
+      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
     }
   };
 
