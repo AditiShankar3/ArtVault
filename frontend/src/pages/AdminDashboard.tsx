@@ -10,6 +10,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 
+// Helper function (no change)
+const getItemId = (item: any) => {
+  if (!item) return null;
+  return item.artifact_id || item.exhibition_id || item.museum_id;
+};
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [artifacts, setArtifacts] = useState([]);
@@ -20,13 +26,10 @@ const AdminDashboard = () => {
   const [currentTab, setCurrentTab] = useState("artifacts");
 
   useEffect(() => {
-    // Check admin authentication
     if (sessionStorage.getItem("isAdmin") !== "true") {
       navigate("/admin/login");
       return;
     }
-    
-    // Fetch data from MySQL backend
     fetchData();
   }, [navigate]);
 
@@ -37,46 +40,51 @@ const AdminDashboard = () => {
         fetch("http://localhost:3001/api/exhibitions"),
         fetch("http://localhost:3001/api/museums")
       ]);
-
       setArtifacts(await artifactsRes.json());
       setExhibitions(await exhibitionsRes.json());
       setMuseums(await museumsRes.json());
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch data",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to fetch data", variant: "destructive" });
     }
   };
 
+  // --- THIS IS THE MODIFIED FUNCTION ---
   const handleLogout = () => {
     sessionStorage.removeItem("isAdmin");
     sessionStorage.removeItem("adminToken");
-    navigate("/admin/login");
+    navigate("/"); // <-- Changed to navigate to homepage
   };
+  // --- END OF MODIFICATION ---
 
   const handleDelete = async (type: string, id: number) => {
+    if (!window.confirm("Are you sure you want to delete this item? This may fail if other records depend on it.")) {
+      return;
+    }
     try {
       const response = await fetch(`http://localhost:3001/api/${type}/${id}`, {
         method: "DELETE"
       });
-
       if (response.ok) {
         toast({ title: "Success", description: `${type} deleted successfully` });
-        fetchData();
+        fetchData(); // Refresh data
+      } else {
+        const err = await response.json();
+        throw new Error(err.error || "Failed to delete");
       }
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to delete", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
 
   const handleSubmit = async (formData: any) => {
-    const endpoint = editingItem 
-      ? `http://localhost:3001/api/${currentTab}/${editingItem.id}`
+    const isEditing = editingItem != null;
+    const id = getItemId(editingItem); // Use helper to get the correct ID
+
+    const endpoint = isEditing
+      ? `http://localhost:3001/api/${currentTab}/${id}`
       : `http://localhost:3001/api/${currentTab}`;
     
-    const method = editingItem ? "PUT" : "POST";
+    const method = isEditing ? "PUT" : "POST";
 
     try {
       const response = await fetch(endpoint, {
@@ -89,11 +97,29 @@ const AdminDashboard = () => {
         toast({ title: "Success", description: `${currentTab} saved successfully` });
         setIsDialogOpen(false);
         setEditingItem(null);
-        fetchData();
+        fetchData(); // Refresh data
+      } else {
+         const err = await response.json();
+         throw new Error(err.error || "Failed to save");
       }
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to save", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     }
+  };
+  
+  const renderForm = () => {
+    const props = {
+      item: editingItem,
+      onSubmit: handleSubmit,
+      onCancel: () => {
+        setIsDialogOpen(false);
+        setEditingItem(null);
+      }
+    };
+    if (currentTab === 'artifacts') return <ArtifactForm {...props} />;
+    if (currentTab === 'exhibitions') return <ExhibitionForm {...props} />;
+    if (currentTab === 'museums') return <MuseumForm {...props} />;
+    return null;
   };
 
   return (
@@ -109,47 +135,53 @@ const AdminDashboard = () => {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        <Tabs value={currentTab} onValueChange={setCurrentTab}>
+        <Tabs value={currentTab} onValueChange={(tab) => {
+          setCurrentTab(tab);
+          setEditingItem(null);
+          setIsDialogOpen(false);
+        }}>
           <TabsList className="grid w-full grid-cols-3 mb-8">
             <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
             <TabsTrigger value="exhibitions">Exhibitions</TabsTrigger>
             <TabsTrigger value="museums">Museums</TabsTrigger>
           </TabsList>
 
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogContent>
+              {renderForm()}
+            </DialogContent>
+          </Dialog>
+
           <TabsContent value="artifacts">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Manage Artifacts</CardTitle>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button onClick={() => setEditingItem(null)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Artifact
-                    </Button>
-                  </DialogTrigger>
-                  <ArtifactForm 
-                    item={editingItem} 
-                    onSubmit={handleSubmit}
-                    onCancel={() => setIsDialogOpen(false)}
-                  />
-                </Dialog>
+                <Button onClick={() => {
+                  setEditingItem(null);
+                  setIsDialogOpen(true);
+                }}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Artifact
+                </Button>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>ID</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Origin</TableHead>
-                      <TableHead>Era</TableHead>
+                      <TableHead>Museum ID</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {artifacts.map((artifact: any) => (
                       <TableRow key={artifact.artifact_id}>
+                        <TableCell>{artifact.artifact_id}</TableCell>
                         <TableCell>{artifact.name}</TableCell>
                         <TableCell>{artifact.origin}</TableCell>
-                        <TableCell>{artifact.era}</TableCell>
+                        <TableCell>{artifact.museum_id}</TableCell>
                         <TableCell className="space-x-2">
                           <Button 
                             size="sm" 
@@ -181,38 +213,32 @@ const AdminDashboard = () => {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Manage Exhibitions</CardTitle>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button onClick={() => setEditingItem(null)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Exhibition
-                    </Button>
-                  </DialogTrigger>
-                  <ExhibitionForm 
-                    item={editingItem} 
-                    onSubmit={handleSubmit}
-                    onCancel={() => setIsDialogOpen(false)}
-                  />
-                </Dialog>
+                <Button onClick={() => {
+                  setEditingItem(null);
+                  setIsDialogOpen(true);
+                }}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Exhibition
+                </Button>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>ID</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Theme</TableHead>
-                      <TableHead>Start Date</TableHead>
-                      <TableHead>End Date</TableHead>
+                      <TableHead>Museum ID</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {exhibitions.map((exhibition: any) => (
                       <TableRow key={exhibition.exhibition_id}>
+                        <TableCell>{exhibition.exhibition_id}</TableCell>
                         <TableCell>{exhibition.name}</TableCell>
                         <TableCell>{exhibition.theme}</TableCell>
-                        <TableCell>{exhibition.start_date}</TableCell>
-                        <TableCell>{exhibition.end_date}</TableCell>
+                        <TableCell>{exhibition.museum_id}</TableCell>
                         <TableCell className="space-x-2">
                           <Button 
                             size="sm" 
@@ -244,27 +270,21 @@ const AdminDashboard = () => {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Manage Museums</CardTitle>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button onClick={() => setEditingItem(null)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Museum
-                    </Button>
-                  </DialogTrigger>
-                  <MuseumForm 
-                    item={editingItem} 
-                    onSubmit={handleSubmit}
-                    onCancel={() => setIsDialogOpen(false)}
-                  />
-                </Dialog>
+                <Button onClick={() => {
+                  setEditingItem(null);
+                  setIsDialogOpen(true);
+                }}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Museum
+                </Button>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>ID</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>City</TableHead>
-                      <TableHead>State</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
@@ -272,9 +292,9 @@ const AdminDashboard = () => {
                   <TableBody>
                     {museums.map((museum: any) => (
                       <TableRow key={museum.museum_id}>
+                        <TableCell>{museum.museum_id}</TableCell>
                         <TableCell>{museum.name}</TableCell>
                         <TableCell>{museum.city}</TableCell>
-                        <TableCell>{museum.state}</TableCell>
                         <TableCell>{museum.type}</TableCell>
                         <TableCell className="space-x-2">
                           <Button 
@@ -308,18 +328,28 @@ const AdminDashboard = () => {
   );
 };
 
-// Form components
+// --- Form Components (Unchanged) ---
+
 const ArtifactForm = ({ item, onSubmit, onCancel }: any) => {
   const [formData, setFormData] = useState(item || {
-    name: "", origin: "", era: "", museum_id: ""
+    artifact_id: "", name: "", origin: "", era: "", museum_id: ""
   });
 
   return (
-    <DialogContent>
+    <>
       <DialogHeader>
         <DialogTitle>{item ? "Edit" : "Add"} Artifact</DialogTitle>
       </DialogHeader>
       <div className="grid gap-4 py-4">
+        <div className="grid gap-2">
+          <Label>Artifact ID</Label>
+          <Input 
+            value={formData.artifact_id} 
+            onChange={(e) => setFormData({...formData, artifact_id: e.target.value})}
+            disabled={item != null}
+            placeholder="e.g. 10021"
+          />
+        </div>
         <div className="grid gap-2">
           <Label>Name</Label>
           <Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
@@ -332,26 +362,53 @@ const ArtifactForm = ({ item, onSubmit, onCancel }: any) => {
           <Label>Era</Label>
           <Input value={formData.era} onChange={(e) => setFormData({...formData, era: e.target.value})} />
         </div>
+        <div className="grid gap-2">
+          <Label>Museum ID</Label>
+          <Input 
+            type="number" 
+            value={formData.museum_id} 
+            onChange={(e) => setFormData({...formData, museum_id: e.target.value})} 
+            placeholder="e.g. 1"
+          />
+        </div>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
         <Button onClick={() => onSubmit(formData)}>Save</Button>
       </DialogFooter>
-    </DialogContent>
+    </>
   );
 };
 
 const ExhibitionForm = ({ item, onSubmit, onCancel }: any) => {
-  const [formData, setFormData] = useState(item || {
-    name: "", theme: "", start_date: "", end_date: "", museum_id: ""
+  const formatDate = (date: string) => {
+    if (!date) return "";
+    return new Date(date).toISOString().split('T')[0];
+  };
+  
+  const [formData, setFormData] = useState(item ? {
+    ...item,
+    start_date: formatDate(item.start_date),
+    end_date: formatDate(item.end_date),
+  } : {
+    exhibition_id: "", name: "", theme: "", start_date: "", end_date: "", museum_id: ""
   });
 
   return (
-    <DialogContent>
+    <>
       <DialogHeader>
         <DialogTitle>{item ? "Edit" : "Add"} Exhibition</DialogTitle>
       </DialogHeader>
       <div className="grid gap-4 py-4">
+        <div className="grid gap-2">
+          <Label>Exhibition ID</Label>
+          <Input 
+            value={formData.exhibition_id} 
+            onChange={(e) => setFormData({...formData, exhibition_id: e.target.value})}
+            disabled={item != null}
+            placeholder="e.g. 506"
+          />
+        </div>
         <div className="grid gap-2">
           <Label>Name</Label>
           <Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
@@ -368,26 +425,44 @@ const ExhibitionForm = ({ item, onSubmit, onCancel }: any) => {
           <Label>End Date</Label>
           <Input type="date" value={formData.end_date} onChange={(e) => setFormData({...formData, end_date: e.target.value})} />
         </div>
+        <div className="grid gap-2">
+          <Label>Museum ID</Label>
+          <Input 
+            type="number" 
+            value={formData.museum_id} 
+            onChange={(e) => setFormData({...formData, museum_id: e.target.value})}
+            placeholder="e.g. 1"
+          />
+        </div>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
         <Button onClick={() => onSubmit(formData)}>Save</Button>
       </DialogFooter>
-    </DialogContent>
+    </>
   );
 };
 
 const MuseumForm = ({ item, onSubmit, onCancel }: any) => {
   const [formData, setFormData] = useState(item || {
-    name: "", city: "", state: "", type: "", established_year: ""
+    museum_id: "", name: "", city: "", state: "", type: "", established_year: ""
   });
 
   return (
-    <DialogContent>
+    <>
       <DialogHeader>
         <DialogTitle>{item ? "Edit" : "Add"} Museum</DialogTitle>
       </DialogHeader>
       <div className="grid gap-4 py-4">
+        <div className="grid gap-2">
+          <Label>Museum ID</Label>
+          <Input 
+            value={formData.museum_id} 
+            onChange={(e) => setFormData({...formData, museum_id: e.target.value})}
+            disabled={item != null}
+            placeholder="e.g. 6"
+          />
+        </div>
         <div className="grid gap-2">
           <Label>Name</Label>
           <Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
@@ -404,12 +479,21 @@ const MuseumForm = ({ item, onSubmit, onCancel }: any) => {
           <Label>Type</Label>
           <Input value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} />
         </div>
+        <div className="grid gap-2">
+          <Label>Established Year</Label>
+          <Input 
+            type="number" 
+            value={formData.established_year} 
+            onChange={(e) => setFormData({...formData, established_year: e.target.value})}
+            placeholder="e.g. 1999"
+          />
+        </div>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
         <Button onClick={() => onSubmit(formData)}>Save</Button>
       </DialogFooter>
-    </DialogContent>
+    </>
   );
 };
 
