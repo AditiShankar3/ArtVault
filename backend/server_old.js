@@ -174,18 +174,17 @@ app.post('/api/register-visitor', async (req, res) => {
 // =====================================================
 
 // --- ADMIN: EXHIBITIONS (CRUD + Sponsor Linking) ---
-// Add this to server.js if you don't have it.
-// It's different from /api/exhibitions
 
+// GET ALL Exhibitions (for admin panel)
 app.get('/api/exhibitions/all', async (req, res) => {
   let connection;
   try {
     connection = await pool.getConnection();
     const sql = `
-      SELECT e.exhibition_id, e.name, m.name AS museum_name 
+      SELECT e.*, m.name AS museum_name 
       FROM exhibition e
       JOIN Museum m ON e.museum_id = m.museum_id
-      ORDER BY e.name;
+      ORDER BY e.start_date DESC;
     `;
     const [rows] = await connection.execute(sql);
     res.json(rows);
