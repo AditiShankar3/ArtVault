@@ -172,6 +172,20 @@ CREATE TABLE WeaponTool (
     FOREIGN KEY (archeologist_id) REFERENCES Archeologist(archeologist_id)
 );
 
+USE museum_db;
+
+-- 1. Create a simple table for admins
+CREATE TABLE Admin (
+  admin_id INT PRIMARY KEY AUTO_INCREMENT,
+  username VARCHAR(50) NOT NULL UNIQUE,
+  password VARCHAR(50) NOT NULL
+);
+
+-- 2. Insert your two admin users
+INSERT INTO Admin (username, password) VALUES 
+('admin1', 'ArtVault'),
+('admin2', 'ArtVault');
+
 -- =====================================================
 -- 5. INSERT DATA - CORE ENTITIES FIRST
 -- =====================================================

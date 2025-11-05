@@ -30,7 +30,56 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.use(express.json()); // To parse any JSON in request bodies (if you add POST/PUT routes)
+//
+// ===================================================================
+// === ⬇️ ADD THIS NEW ADMIN LOGIN ROUTE ⬇️ ===
+// ===================================================================
+//
+app.post('/api/admin/login', async (req, res) => {
+  const { username, password } = req.body;
 
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required' });
+  }
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    
+    // 1. Check the database for an exact match
+    const sql = 'SELECT * FROM Admin WHERE username = ? AND password = ?';
+    const [rows] = await connection.execute(sql, [username, password]);
+
+    // 2. Check if we found a user
+    if (rows.length > 0) {
+      // User and password match!
+      // We send a "fake" token because your frontend expects one.
+      res.status(200).json({ 
+        success: true, 
+        message: 'Login successful', 
+        token: 'demo-admin-token' // Simple string to satisfy the frontend
+      });
+    } else {
+      // No match found
+      res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+  } catch (err) {
+    console.error('Error during admin login:', err);
+    res.status(500).json({ error: 'Server error during login' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+// ===================================================================
+// === ⬆️ END OF NEW ADMIN LOGIN ROUTE ⬆️ ===
+// ===================================================================
+//
+
+// --- API Routes ---
+
+// In server.js
+// (Your /api/artifacts route and all other routes go here)
 // --- API Routes ---
 
 // In server.js
@@ -204,32 +253,50 @@ app.post('/api/sponsors', async (req, res) => {
   }
 });
 
-// ⬇️ ADD NEW ROUTE: GET CURRENT EXHIBITIONS ⬇️
+//
+// ===================================================================
+// === ⬇️ THIS IS THE MODIFIED ROUTE ⬇️ ===
+// ===================================================================
+//
 app.get('/api/exhibitions', async (req, res) => {
   try {
     const connection = await pool.getConnection();
     
-    // This query:
+    // This query now:
     // 1. Joins with Museum to get the museum's name
-    // 2. Selects exhibitions where today's date (CURDATE()) is 
-    //    between the start and end date.
+    // 2. Calls your SQL function fn_exhibition_visitor_count
+    // 3. Calls your SQL function fn_exhibition_duration_days
+    // 4. NOTE: I've removed the WHERE clause that only showed "current"
+    //    exhibitions so you can see all of them (like in Exhibitions2.tsx).
+    //    You can add `WHERE e.end_date >= CURDATE()` if you only want to show ongoing.
     const sql = `
       SELECT 
-        e.*, 
-        m.name AS museum_name 
-      FROM exhibition e
-      JOIN Museum m ON e.museum_id = m.museum_id
-      WHERE e.start_date <= CURDATE() AND e.end_date >= CURDATE();
+        e.exhibition_id,
+        e.name,
+        e.theme,
+        e.start_date,
+        e.end_date,
+        e.museum_id,
+        m.name AS museum_name,
+        fn_exhibition_visitor_count(e.exhibition_id) AS visitor_count,
+        fn_exhibition_duration_days(e.exhibition_id) AS duration_days
+      FROM Exhibition e
+      INNER JOIN Museum m ON e.museum_id = m.museum_id;
     `;
 
     const [rows] = await connection.execute(sql);
     connection.release();
     res.json(rows);
   } catch (err) {
-    console.error('Error fetching current exhibitions:', err);
+    console.error('Error fetching exhibitions:', err);
     res.status(500).json({ error: 'Failed to fetch exhibitions' });
   }
 });
+// ===================================================================
+// === ⬆️ END OF MODIFIED ROUTE ⬆️ ===
+// ===================================================================
+//
+
 
 // ⬇️ ADD NEW ROUTE: REGISTER VISITOR ⬇️
 app.post('/api/register-visitor', async (req, res) => {
