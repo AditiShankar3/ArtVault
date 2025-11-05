@@ -10,10 +10,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 
-// Helper function (no change)
+// Helper to get the correct unique ID from an item
 const getItemId = (item: any) => {
   if (!item) return null;
   return item.artifact_id || item.exhibition_id || item.museum_id;
+};
+
+// --- 1. NEW HELPER FUNCTION ---
+// Calculates the next available ID
+const getNextId = (items: any[], idKey: string): number => {
+  if (items.length === 0) {
+    // Return base IDs from your schema if list is empty
+    if (idKey === 'artifact_id') return 10001;
+    if (idKey === 'exhibition_id') return 501;
+    if (idKey === 'museum_id') return 1;
+    return 1;
+  }
+  // Find the highest ID in the current list
+  const maxId = Math.max(...items.map(item => Number(item[idKey])));
+  return maxId + 1;
 };
 
 const AdminDashboard = () => {
@@ -48,15 +63,14 @@ const AdminDashboard = () => {
     }
   };
 
-  // --- THIS IS THE MODIFIED FUNCTION ---
   const handleLogout = () => {
     sessionStorage.removeItem("isAdmin");
     sessionStorage.removeItem("adminToken");
-    navigate("/"); // <-- Changed to navigate to homepage
+    navigate("/"); // Navigate to homepage
   };
-  // --- END OF MODIFICATION ---
 
   const handleDelete = async (type: string, id: number) => {
+    // ... (no changes to this function)
     if (!window.confirm("Are you sure you want to delete this item? This may fail if other records depend on it.")) {
       return;
     }
@@ -66,7 +80,7 @@ const AdminDashboard = () => {
       });
       if (response.ok) {
         toast({ title: "Success", description: `${type} deleted successfully` });
-        fetchData(); // Refresh data
+        fetchData(); 
       } else {
         const err = await response.json();
         throw new Error(err.error || "Failed to delete");
@@ -77,27 +91,24 @@ const AdminDashboard = () => {
   };
 
   const handleSubmit = async (formData: any) => {
+    // ... (no changes to this function)
     const isEditing = editingItem != null;
-    const id = getItemId(editingItem); // Use helper to get the correct ID
-
+    const id = getItemId(editingItem); 
     const endpoint = isEditing
       ? `http://localhost:3001/api/${currentTab}/${id}`
       : `http://localhost:3001/api/${currentTab}`;
-    
     const method = isEditing ? "PUT" : "POST";
-
     try {
       const response = await fetch(endpoint, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)
       });
-
       if (response.ok) {
         toast({ title: "Success", description: `${currentTab} saved successfully` });
         setIsDialogOpen(false);
         setEditingItem(null);
-        fetchData(); // Refresh data
+        fetchData(); 
       } else {
          const err = await response.json();
          throw new Error(err.error || "Failed to save");
@@ -107,6 +118,12 @@ const AdminDashboard = () => {
     }
   };
   
+  // --- 2. CALCULATE NEXT IDS ---
+  const nextArtifactId = getNextId(artifacts, 'artifact_id');
+  const nextExhibitionId = getNextId(exhibitions, 'exhibition_id');
+  const nextMuseumId = getNextId(museums, 'museum_id');
+
+  // --- 3. PASS nextId PROP ---
   const renderForm = () => {
     const props = {
       item: editingItem,
@@ -116,9 +133,10 @@ const AdminDashboard = () => {
         setEditingItem(null);
       }
     };
-    if (currentTab === 'artifacts') return <ArtifactForm {...props} />;
-    if (currentTab === 'exhibitions') return <ExhibitionForm {...props} />;
-    if (currentTab === 'museums') return <MuseumForm {...props} />;
+    // Pass the correct nextId to the correct form
+    if (currentTab === 'artifacts') return <ArtifactForm {...props} nextId={nextArtifactId} />;
+    if (currentTab === 'exhibitions') return <ExhibitionForm {...props} nextId={nextExhibitionId} />;
+    if (currentTab === 'museums') return <MuseumForm {...props} nextId={nextMuseumId} />;
     return null;
   };
 
@@ -137,7 +155,7 @@ const AdminDashboard = () => {
       <div className="container mx-auto px-4 py-8">
         <Tabs value={currentTab} onValueChange={(tab) => {
           setCurrentTab(tab);
-          setEditingItem(null);
+          setEditingItem(null); 
           setIsDialogOpen(false);
         }}>
           <TabsList className="grid w-full grid-cols-3 mb-8">
@@ -157,7 +175,7 @@ const AdminDashboard = () => {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Manage Artifacts</CardTitle>
                 <Button onClick={() => {
-                  setEditingItem(null);
+                  setEditingItem(null); 
                   setIsDialogOpen(true);
                 }}>
                   <Plus className="mr-2 h-4 w-4" />
@@ -166,6 +184,7 @@ const AdminDashboard = () => {
               </CardHeader>
               <CardContent>
                 <Table>
+                  {/* ... (Table content unchanged) ... */}
                   <TableHeader>
                     <TableRow>
                       <TableHead>ID</TableHead>
@@ -223,6 +242,7 @@ const AdminDashboard = () => {
               </CardHeader>
               <CardContent>
                 <Table>
+                  {/* ... (Table content unchanged) ... */}
                   <TableHeader>
                     <TableRow>
                       <TableHead>ID</TableHead>
@@ -280,6 +300,7 @@ const AdminDashboard = () => {
               </CardHeader>
               <CardContent>
                 <Table>
+                  {/* ... (Table content unchanged) ... */}
                   <TableHeader>
                     <TableRow>
                       <TableHead>ID</TableHead>
@@ -328,11 +349,18 @@ const AdminDashboard = () => {
   );
 };
 
-// --- Form Components (Unchanged) ---
+// ===================================================================
+// === ⬇️ 4. MODIFIED FORM COMPONENTS ⬇️ ===
+// ===================================================================
 
-const ArtifactForm = ({ item, onSubmit, onCancel }: any) => {
+const ArtifactForm = ({ item, onSubmit, onCancel, nextId }: any) => {
+  // Use `nextId` if `item` is null (i.e., we are "Adding")
   const [formData, setFormData] = useState(item || {
-    artifact_id: "", name: "", origin: "", era: "", museum_id: ""
+    artifact_id: nextId || "",
+    name: "", 
+    origin: "", 
+    era: "", 
+    museum_id: ""
   });
 
   return (
@@ -346,8 +374,8 @@ const ArtifactForm = ({ item, onSubmit, onCancel }: any) => {
           <Input 
             value={formData.artifact_id} 
             onChange={(e) => setFormData({...formData, artifact_id: e.target.value})}
-            disabled={item != null}
-            placeholder="e.g. 10021"
+            disabled={true} // Always disable ID field
+            placeholder="Auto-generated"
           />
         </div>
         <div className="grid gap-2">
@@ -380,18 +408,24 @@ const ArtifactForm = ({ item, onSubmit, onCancel }: any) => {
   );
 };
 
-const ExhibitionForm = ({ item, onSubmit, onCancel }: any) => {
+const ExhibitionForm = ({ item, onSubmit, onCancel, nextId }: any) => {
   const formatDate = (date: string) => {
     if (!date) return "";
     return new Date(date).toISOString().split('T')[0];
   };
   
+  // Use `nextId` if `item` is null
   const [formData, setFormData] = useState(item ? {
     ...item,
     start_date: formatDate(item.start_date),
     end_date: formatDate(item.end_date),
   } : {
-    exhibition_id: "", name: "", theme: "", start_date: "", end_date: "", museum_id: ""
+    exhibition_id: nextId || "",
+    name: "", 
+    theme: "", 
+    start_date: "", 
+    end_date: "", 
+    museum_id: ""
   });
 
   return (
@@ -405,8 +439,8 @@ const ExhibitionForm = ({ item, onSubmit, onCancel }: any) => {
           <Input 
             value={formData.exhibition_id} 
             onChange={(e) => setFormData({...formData, exhibition_id: e.target.value})}
-            disabled={item != null}
-            placeholder="e.g. 506"
+            disabled={true} // Always disable ID field
+            placeholder="Auto-generated"
           />
         </div>
         <div className="grid gap-2">
@@ -425,6 +459,7 @@ const ExhibitionForm = ({ item, onSubmit, onCancel }: any) => {
           <Label>End Date</Label>
           <Input type="date" value={formData.end_date} onChange={(e) => setFormData({...formData, end_date: e.target.value})} />
         </div>
+        .
         <div className="grid gap-2">
           <Label>Museum ID</Label>
           <Input 
@@ -443,9 +478,15 @@ const ExhibitionForm = ({ item, onSubmit, onCancel }: any) => {
   );
 };
 
-const MuseumForm = ({ item, onSubmit, onCancel }: any) => {
+const MuseumForm = ({ item, onSubmit, onCancel, nextId }: any) => {
+  // Use `nextId` if `item` is null
   const [formData, setFormData] = useState(item || {
-    museum_id: "", name: "", city: "", state: "", type: "", established_year: ""
+    museum_id: nextId || "",
+    name: "", 
+    city: "", 
+    state: "", 
+    type: "", 
+    established_year: ""
   });
 
   return (
@@ -459,8 +500,8 @@ const MuseumForm = ({ item, onSubmit, onCancel }: any) => {
           <Input 
             value={formData.museum_id} 
             onChange={(e) => setFormData({...formData, museum_id: e.target.value})}
-            disabled={item != null}
-            placeholder="e.g. 6"
+            disabled={true} // Always disable ID field
+            placeholder="Auto-generated"
           />
         </div>
         <div className="grid gap-2">
