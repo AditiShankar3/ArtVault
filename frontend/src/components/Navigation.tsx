@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Landmark, Search, Calendar, Building2, Users, Home } from "lucide-react";
+import { Landmark, Search, Calendar, Building2, Users, Home, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const Navigation = () => {
@@ -38,6 +38,16 @@ const Navigation = () => {
                 </Link>
               );
             })}
+            <Link to="/admin/login">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 ml-2"
+              >
+                <Shield className="h-4 w-4" />
+                Admin
+              </Button>
+            </Link>
           </div>
         </div>
       </div>

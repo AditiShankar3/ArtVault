@@ -8,8 +8,11 @@ import Artifacts from "./pages/Artifacts";
 import Exhibitions from "./pages/Exhibitions";
 import Museums from "./pages/Museums";
 import Sponsors from "./pages/Sponsors";
+import SearchResults from "./pages/SearchResults";
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
-import SearchResultsPage from "./pages/SearchResults"; // Adjust path as needed
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -20,11 +23,13 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/search" element={<SearchResults />} />
           <Route path="/artifacts" element={<Artifacts />} />
           <Route path="/exhibitions" element={<Exhibitions />} />
           <Route path="/museums" element={<Museums />} />
           <Route path="/sponsors" element={<Sponsors />} />
-          <Route path="/search" element={<SearchResultsPage />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
