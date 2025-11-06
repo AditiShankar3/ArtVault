@@ -118,6 +118,9 @@ CREATE TABLE Exhibition_Sponsor (
     FOREIGN KEY(sponsor_id) REFERENCES Sponsor(sponsor_id)
 );
 
+ALTER TABLE Exhibition_Sponsor
+ADD COLUMN status ENUM('Pending', 'Approved', 'Rejected') NOT NULL DEFAULT 'Pending';
+
 -- 3c. Exhibition displays Artifact (M:N)
 CREATE TABLE Exhibition_Artifact (
     exhibition_id INT,
@@ -322,7 +325,8 @@ INSERT INTO Exhibition_Sponsor (exhibition_id, sponsor_id, budget) VALUES
 (502, 302, 3200000.00), (502, 305, 150000.00), (503, 304, 2500000.00),
 (503, 306, 450000.00), (504, 301, 1100000.00), (504, 303, 650000.00),
 (505, 302, 1750000.00), (505, 305, 350000.00), (505, 306, 600000.00);
-
+UPDATE Exhibition_Sponsor 
+SET status = 'Approved';
 -- 7c. Insert Exhibition_Artifact mappings
 INSERT INTO Exhibition_Artifact (exhibition_id, artifact_id) VALUES
 (501, 10001), (501, 10007), (501, 10014), (501, 10019),

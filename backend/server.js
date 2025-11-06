@@ -23,13 +23,9 @@ const corsOptions = {
   optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
-app.use(express.json()); // To parse any JSON in request bodies
+app.use(express.json());
 
-//
-// ===================================================================
-// === ⬇️ ADMIN LOGIN ROUTE (Keep This) ⬇️ ===
-// ===================================================================
-//
+// --- ADMIN LOGIN ROUTE ---
 app.post('/api/admin/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
@@ -57,11 +53,12 @@ app.post('/api/admin/login', async (req, res) => {
   }
 });
 
-// --- API Routes (GET - Already Existing) ---
+// ===================================================================
+// === ⬇️ PUBLIC 'GET' ROUTES (INCLUDES THE MISSING ONES) ⬇️ ===
+// ===================================================================
 
-// GET Artifacts (No Change)
+// GET Artifacts (with search)
 app.get('/api/artifacts', async (req, res) => {
-  // ... (Your existing GET /api/artifacts code is fine)
   const { search = '' } = req.query;
   let connection;
   try {
@@ -85,9 +82,68 @@ app.get('/api/artifacts', async (req, res) => {
   }
 });
 
-// GET Exhibitions (No Change)
+// --- THIS ROUTE WAS MISSING ---
+// GET Search (Global Search)
+app.get('/api/search', async (req, res) => {
+  const { q = '' } = req.query;
+  const searchTerm = `${q}%`; 
+
+  if (!q) {
+    return res.json({ artifacts: [], museums: [], exhibitions: [] });
+  }
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+
+    // 1. Artifacts Query
+    const artifactSql = `
+      SELECT artifact_id, name, origin, era, museum_id 
+      FROM artifact 
+      WHERE name LIKE ? OR origin LIKE ? OR era LIKE ?
+    `;
+    const artifactQuery = connection.execute(artifactSql, [searchTerm, searchTerm, searchTerm]);
+
+    // 2. Museums Query
+    const museumSql = `
+      SELECT museum_id, name, city, state, type 
+      FROM Museum 
+      WHERE name LIKE ? OR city LIKE ? OR type LIKE ?
+    `;
+    const museumQuery = connection.execute(museumSql, [searchTerm, searchTerm, searchTerm]);
+
+    // 3. Exhibitions Query
+    const exhibitionSql = `
+      SELECT e.exhibition_id, e.name, e.theme, e.start_date, e.end_date, m.name AS museum_name
+      FROM exhibition e
+      JOIN Museum m ON e.museum_id = m.museum_id
+      WHERE e.name LIKE ? OR e.theme LIKE ? OR m.name LIKE ?
+    `;
+    const exhibitionQuery = connection.execute(exhibitionSql, [searchTerm, searchTerm, searchTerm]);
+
+    // Run all 3 queries in parallel
+    const [
+      [artifacts],
+      [museums],
+      [exhibitions]
+    ] = await Promise.all([
+      artifactQuery,
+      museumQuery,
+      exhibitionQuery
+    ]);
+
+    res.json({ artifacts, museums, exhibitions });
+
+  } catch (err) {
+    console.error('Error performing global search:', err);
+    res.status(500).json({ error: 'Failed to execute global search' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET Exhibitions (for main page)
 app.get('/api/exhibitions', async (req, res) => {
-  // ... (Your existing GET /api/exhibitions code is fine)
   try {
     const connection = await pool.getConnection();
     const sql = `
@@ -108,9 +164,8 @@ app.get('/api/exhibitions', async (req, res) => {
   }
 });
 
-// GET Museums (No Change)
+// GET Museums
 app.get('/api/museums', async (req, res) => {
-  // ... (Your existing GET /api/museums code is fine)
   try {
     const connection = await pool.getConnection();
     const sql = "SELECT * FROM Museum";
@@ -123,14 +178,82 @@ app.get('/api/museums', async (req, res) => {
   }
 });
 
-// (Other routes like /api/search, /api/sponsors, etc. are fine)
-// ...
 
-//
 // ===================================================================
-// === ⬇️ NEW ARTIFACT (POST, PUT, DELETE) ROUTES ⬇️ ===
+// === ⬇️ PUBLIC 'POST' ROUTES (INCLUDES THE MISSING ONES) ⬇️ ===
 // ===================================================================
-//
+
+// --- THIS ROUTE WAS MISSING ---
+// POST Register Visitor
+app.post('/api/register-visitor', async (req, res) => {
+  const { name, age, gender, city, exhibition_id } = req.body;
+
+  if (!name || !age || !gender || !city || !exhibition_id) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // 1. Insert the new visitor
+    const visitorSql = 'INSERT INTO visitor (name, age, gender, city) VALUES (?, ?, ?, ?)';
+    const [visitorResult] = await connection.execute(visitorSql, [name, age, gender, city]);
+    const newVisitorId = visitorResult.insertId;
+
+    // 2. Link the visitor to the exhibition
+    const linkSql = 'INSERT INTO visitor_exhibition (visitor_id, exhibition_id) VALUES (?, ?)';
+    await connection.execute(linkSql, [newVisitorId, exhibition_id]);
+
+    await connection.commit();
+    res.status(201).json({ success: true, message: 'Visitor registered!' });
+
+  } catch (err) {
+    if (connection) await connection.rollback();
+    console.error('Error registering visitor:', err);
+    res.status(500).json({ error: 'Failed to register visitor' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// POST Sponsorship Request (for the NEW sponsor form)
+app.post('/api/sponsorship-request', async (req, res) => {
+  const { name, type, contact_no, email, exhibition_id, budget } = req.body;
+  if (!name || !email || !exhibition_id || !budget) {
+    return res.status(400).json({ error: 'Sponsor name, email, exhibition, and budget are required.' });
+  }
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // 1. Create the Sponsor
+    const sponsorSql = 'INSERT INTO Sponsor (name, type, contact_no, email) VALUES (?, ?, ?, ?)';
+    const [sponsorResult] = await connection.execute(sponsorSql, [name, type, contact_no, email]);
+    const newSponsorId = sponsorResult.insertId;
+
+    // 2. Create the 'Pending' sponsorship link
+    const linkSql = 'INSERT INTO Exhibition_Sponsor (exhibition_id, sponsor_id, budget, status) VALUES (?, ?, ?, ?)';
+    await connection.execute(linkSql, [exhibition_id, newSponsorId, budget, 'Pending']);
+    
+    await connection.commit();
+    res.status(201).json({ success: true, message: 'Sponsorship request submitted!' });
+  } catch (err) {
+    if (connection) await connection.rollback();
+    console.error('Error submitting sponsorship request:', err);
+    res.status(500).json({ error: 'Failed to submit request.' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+
+// ===================================================================
+// === ⬇️ ADMIN CRUD ROUTES (Unchanged) ⬇️ ===
+// ===================================================================
 
 // POST (CREATE) a new artifact
 app.post('/api/artifacts', async (req, res) => {
@@ -171,8 +294,6 @@ app.delete('/api/artifacts/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const connection = await pool.getConnection();
-    // You may need to delete from child tables first if you have FK constraints
-    // e.g., DELETE FROM Exhibition_Artifact WHERE artifact_id = ?
     const sql = 'DELETE FROM Artifact WHERE artifact_id = ?';
     await connection.execute(sql, [id]);
     connection.release();
@@ -183,12 +304,6 @@ app.delete('/api/artifacts/:id', async (req, res) => {
   }
 });
 
-//
-// ===================================================================
-// === ⬇️ NEW EXHIBITION (POST, PUT, DELETE) ROUTES ⬇️ ===
-// ===================================================================
-//
-
 // POST (CREATE) a new exhibition
 app.post('/api/exhibitions', async (req, res) => {
   const { exhibition_id, name, theme, start_date, end_date, museum_id } = req.body;
@@ -198,7 +313,8 @@ app.post('/api/exhibitions', async (req, res) => {
     await connection.execute(sql, [exhibition_id, name, theme, start_date, end_date, museum_id]);
     connection.release();
     res.status(201).json({ success: true, message: 'Exhibition created' });
-  } catch (err) {
+  } catch (err)
+ {
     console.error('Error creating exhibition:', err);
     res.status(500).json({ error: 'Failed to create exhibition' });
   }
@@ -225,11 +341,9 @@ app.delete('/api/exhibitions/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const connection = await pool.getConnection();
-    // Delete dependencies first
     await connection.execute('DELETE FROM Visitor_Exhibition WHERE exhibition_id = ?', [id]);
     await connection.execute('DELETE FROM Exhibition_Sponsor WHERE exhibition_id = ?', [id]);
     await connection.execute('DELETE FROM Exhibition_Artifact WHERE exhibition_id = ?', [id]);
-    // Now delete the exhibition
     await connection.execute('DELETE FROM Exhibition WHERE exhibition_id = ?', [id]);
     connection.release();
     res.status(200).json({ success: true, message: 'Exhibition deleted' });
@@ -238,12 +352,6 @@ app.delete('/api/exhibitions/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete exhibition' });
   }
 });
-
-//
-// ===================================================================
-// === ⬇️ NEW MUSEUM (POST, PUT, DELETE) ROUTES ⬇️ ===
-// ===================================================================
-//
 
 // POST (CREATE) a new museum
 app.post('/api/museums', async (req, res) => {
@@ -281,21 +389,78 @@ app.delete('/api/museums/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const connection = await pool.getConnection();
-    // You must delete all child records from other tables first
-    // This is complex! It includes Staff, Exhibitions, and Artifacts
-    // A simpler way for a demo is to set them to NULL if allowed, or delete
-    // This example assumes you'd delete them (which is dangerous!)
-    // A better DB design would use ON DELETE CASCADE or ON DELETE SET NULL
     await connection.execute('DELETE FROM Staff WHERE museum_id = ?', [id]);
     await connection.execute('DELETE FROM Artifact WHERE museum_id = ?', [id]);
     await connection.execute('DELETE FROM Exhibition WHERE museum_id = ?', [id]);
-    // Now delete the museum
     await connection.execute('DELETE FROM Museum WHERE museum_id = ?', [id]);
     connection.release();
     res.status(200).json({ success: true, message: 'Museum deleted' });
   } catch (err) {
     console.error('Error deleting museum:', err);
     res.status(500).json({ error: 'Failed to delete museum' });
+  }
+});
+
+// ===================================================================
+// === ⬇️ ADMIN SPONSORSHIP ROUTES (Unchanged) ⬇️ ===
+// ===================================================================
+
+// GET Ongoing Exhibitions (for sponsor form dropdown)
+app.get('/api/exhibitions/ongoing', async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    const sql = 'SELECT exhibition_id, name FROM Exhibition WHERE end_date >= CURDATE() ORDER BY start_date';
+    const [rows] = await connection.execute(sql);
+    connection.release();
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching ongoing exhibitions:', err);
+    res.status(500).json({ error: 'Failed to fetch exhibitions' });
+  }
+});
+
+// GET Pending Sponsorships (for admin tab)
+app.get('/api/sponsorships/pending', async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    const sql = `
+      SELECT 
+        es.exhibition_id, es.sponsor_id, es.budget,
+        e.name AS exhibition_name,
+        s.name AS sponsor_name, s.email AS sponsor_email
+      FROM Exhibition_Sponsor es
+      JOIN Exhibition e ON es.exhibition_id = e.exhibition_id
+      JOIN Sponsor s ON es.sponsor_id = s.sponsor_id
+      WHERE es.status = 'Pending'
+    `;
+    const [rows] = await connection.execute(sql);
+    connection.release();
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching pending sponsorships:', err);
+    res.status(500).json({ error: 'Failed to fetch pending sponsorships' });
+  }
+});
+
+// PUT Update Sponsorship Status (for admin buttons)
+app.put('/api/sponsorships/update', async (req, res) => {
+  const { exhibition_id, sponsor_id, status } = req.body;
+  if (!exhibition_id || !sponsor_id || !status) {
+    return res.status(400).json({ error: 'exhibition_id, sponsor_id, and status are required' });
+  }
+  if (status !== 'Approved' && status !== 'Rejected') {
+    return res.status(400).json({ error: 'Status must be "Approved" or "Rejected"' });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+    const sql = 'UPDATE Exhibition_Sponsor SET status = ? WHERE exhibition_id = ? AND sponsor_id = ?';
+    await connection.execute(sql, [status, exhibition_id, sponsor_id]);
+    connection.release();
+    res.status(200).json({ success: true, message: `Sponsorship ${status.toLowerCase()}` });
+  } catch (err) {
+    console.error('Error updating sponsorship status:', err);
+    res.status(500).json({ error: 'Failed to update status' });
   }
 });
 
