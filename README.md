@@ -2,18 +2,18 @@
 
 ArtVault is a full-stack web application designed to manage and explore a comprehensive database of museum artifacts, exhibitions, and sponsors. It provides a public-facing interface for visitors to discover content and a secure admin dashboard for managing the system's data.
 
-<<<<<<< HEAD
+
 ![ArtVault Homepage Screenshot](./assets/1.jpg)
 *(Screenshot of the application's home page)*
 
-=======
->>>>>>> 2fe9d31df6913ecfbf4ae18bbdc26339b119354e
+
+
 ---
 
 ## 🚀 Features
 
 ### Public (Visitor) Features
-<<<<<<< HEAD
+
 * **Explore Artifacts:** Search and filter a vast collection of historical artifacts by name, origin, or era.
 * **View Exhibitions:** Browse current and past exhibitions, sorted by their status (Ongoing/Closed).
 * **Exhibition Details:** View detailed information for each exhibition, including visitor count, duration, and status.
@@ -29,23 +29,6 @@ ArtVault is a full-stack web application designed to manage and explore a compre
 * **CRUD for Exhibitions:** Admins can manage all exhibition details, including adding new ones.
 * **CRUD for Museums:** Admins can add new partner museums and edit or remove existing ones.
 * **Sponsorship Management:** Admins can view and manage pending sponsorship requests.
-=======
-* [cite_start]**Explore Artifacts:** Search and filter a vast collection of historical artifacts by name, origin, or era[cite: 8, 29, 31, 32].
-* [cite_start]**View Exhibitions:** Browse current and past exhibitions, sorted by their status (Ongoing/Closed)[cite: 67, 72, 78, 80].
-* [cite_start]**Exhibition Details:** View detailed information for each exhibition, including visitor count, duration, and status[cite: 168, 174, 175].
-* [cite_start]**Visitor Registration:** A public form allows visitors to register their attendance for specific exhibitions[cite: 108, 109, 122].
-* [cite_start]**Museum Directory:** View a complete list of all partner museums, including their location and type[cite: 134, 137, 138, 145].
-* [cite_start]**Sponsor Registration:** A dedicated form for organizations to register their interest in sponsoring an exhibition[cite: 188, 199, 219].
-* [cite_start]**Global Search:** A powerful search bar on the homepage to find artifacts, exhibitions, or museums from one place[cite: 13].
-
-### Admin Features
-* [cite_start]**Secure AdminLogin:** A separate login portal for system administrators[cite: 223].
-* [cite_start]**Management Dashboard:** A central dashboard to manage all core data[cite: 234].
-* [cite_start]**CRUD for Artifacts:** Admins can Create, Read, Update, and Delete all artifacts in the database[cite: 239, 264].
-* [cite_start]**CRUD for Exhibitions:** Admins can manage all exhibition details, including adding new ones[cite: 298, 329].
-* [cite_start]**CRUD for Museums:** Admins can add new partner museums and edit or remove existing ones[cite: 339, 352].
-* [cite_start]**Sponsorship Management:** Admins can view and manage pending sponsorship requests[cite: 371, 382].
->>>>>>> 2fe9d31df6913ecfbf4ae18bbdc26339b119354e
 
 ---
 
@@ -130,7 +113,6 @@ Follow these steps to run the project locally.
 
 ### 3. Admin Credentials
 
-<<<<<<< HEAD
 You can now access the admin panel at `/admin/login`. Use the credentials from the `museum_db.sql` script:
 
 * **Username:** `admin1`
@@ -140,4 +122,4 @@ You can now access the admin panel at `/admin/login`. Use the credentials from t
 
 * **Username:** `admin1`
 * **Password:** `ArtVault`
->>>>>>> 2fe9d31df6913ecfbf4ae18bbdc26339b119354e
+
