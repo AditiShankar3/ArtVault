@@ -118,6 +118,9 @@ CREATE TABLE Exhibition_Sponsor (
     FOREIGN KEY(sponsor_id) REFERENCES Sponsor(sponsor_id)
 );
 
+ALTER TABLE Exhibition_Sponsor
+ADD COLUMN status ENUM('Pending', 'Approved', 'Rejected') NOT NULL DEFAULT 'Pending';
+
 -- 3c. Exhibition displays Artifact (M:N)
 CREATE TABLE Exhibition_Artifact (
     exhibition_id INT,
@@ -322,7 +325,8 @@ INSERT INTO Exhibition_Sponsor (exhibition_id, sponsor_id, budget) VALUES
 (502, 302, 3200000.00), (502, 305, 150000.00), (503, 304, 2500000.00),
 (503, 306, 450000.00), (504, 301, 1100000.00), (504, 303, 650000.00),
 (505, 302, 1750000.00), (505, 305, 350000.00), (505, 306, 600000.00);
-
+UPDATE Exhibition_Sponsor 
+SET status = 'Approved';
 -- 7c. Insert Exhibition_Artifact mappings
 INSERT INTO Exhibition_Artifact (exhibition_id, artifact_id) VALUES
 (501, 10001), (501, 10007), (501, 10014), (501, 10019),
@@ -377,6 +381,7 @@ ALTER TABLE Visitor AUTO_INCREMENT = 1026; -- Next ID after 1025
 ALTER TABLE Sponsor AUTO_INCREMENT = 307;  -- Next ID after 306
 
 -- =====================================================
+<<<<<<< HEAD
 -- Admin page requirements
 -- =====================================================
 -- 1. Create a simple table for admins
@@ -395,6 +400,11 @@ INSERT INTO Admin (username, password) VALUES
 -- 4. FUNCTIONS (4 Functions)
 -- =====================================================
 -- SET GLOBAL log_bin_trust_function_creators = 1;
+=======
+-- 4. FUNCTIONS (4 Functions)
+-- =====================================================
+
+>>>>>>> 2fe9d31df6913ecfbf4ae18bbdc26339b119354e
 -- Function 1: Calculate Exhibition Duration in Days
 DELIMITER $$
 CREATE FUNCTION fn_exhibition_duration_days(p_exhibition_id INT) 
@@ -458,6 +468,7 @@ BEGIN
     RETURN COALESCE(visitor_count, 0);
 END $$
 DELIMITER ;
+<<<<<<< HEAD
 
 DROP FUNCTION IF EXISTS museum_db.fn_exhibition_duration_days;
 DROP FUNCTION IF EXISTS museum_db.fn_get_artifact_type;
@@ -466,6 +477,8 @@ DROP FUNCTION IF EXISTS museum_db.fn_exhibition_visitor_count;
 
 commit;
 
+=======
+>>>>>>> 2fe9d31df6913ecfbf4ae18bbdc26339b119354e
 -- =====================================================
 -- SCRIPT COMPLETE
 -- =====================================================
