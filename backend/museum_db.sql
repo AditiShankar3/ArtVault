@@ -377,5 +377,95 @@ ALTER TABLE Visitor AUTO_INCREMENT = 1026; -- Next ID after 1025
 ALTER TABLE Sponsor AUTO_INCREMENT = 307;  -- Next ID after 306
 
 -- =====================================================
+-- Admin page requirements
+-- =====================================================
+-- 1. Create a simple table for admins
+CREATE TABLE Admin (
+  admin_id INT PRIMARY KEY AUTO_INCREMENT,
+  username VARCHAR(50) NOT NULL UNIQUE,
+  password VARCHAR(50) NOT NULL
+);
+
+-- 2. Insert your two admin users
+INSERT INTO Admin (username, password) VALUES 
+('admin1', 'ArtVault'),
+('admin2', 'ArtVault');
+
+-- =====================================================
+-- 4. FUNCTIONS (4 Functions)
+-- =====================================================
+-- SET GLOBAL log_bin_trust_function_creators = 1;
+-- Function 1: Calculate Exhibition Duration in Days
+DELIMITER $$
+CREATE FUNCTION fn_exhibition_duration_days(p_exhibition_id INT) 
+RETURNS INT
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE duration_days INT;
+    SELECT DATEDIFF(end_date, start_date) INTO duration_days
+    FROM Exhibition
+    WHERE exhibition_id = p_exhibition_id;
+    RETURN COALESCE(duration_days, 0);
+END $$
+DELIMITER ;
+
+-- Function 2: Get Artifact Type by Artifact ID
+DELIMITER $$
+CREATE FUNCTION fn_get_artifact_type(p_artifact_id INT) 
+RETURNS VARCHAR(50)
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE artifact_type VARCHAR(50);
+    SELECT CASE 
+        WHEN EXISTS(SELECT 1 FROM Painting WHERE artifact_id = p_artifact_id) THEN 'Painting'
+        WHEN EXISTS(SELECT 1 FROM Sculpture WHERE artifact_id = p_artifact_id) THEN 'Sculpture'
+        WHEN EXISTS(SELECT 1 FROM Scripture WHERE artifact_id = p_artifact_id) THEN 'Scripture'
+        WHEN EXISTS(SELECT 1 FROM WeaponTool WHERE artifact_id = p_artifact_id) THEN 'Weapon/Tool'
+        ELSE 'Unclassified'
+    END INTO artifact_type;
+    RETURN artifact_type;
+END $$
+DELIMITER ;
+
+-- Function 3: Calculate Average Salary by Museum
+DELIMITER $$
+CREATE FUNCTION fn_avg_salary_by_museum(p_museum_id INT) 
+RETURNS DECIMAL(10,2)
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE avg_salary DECIMAL(10,2);
+    SELECT AVG(salary) INTO avg_salary
+    FROM Staff
+    WHERE museum_id = p_museum_id;
+    RETURN COALESCE(avg_salary, 0);
+END $$
+DELIMITER ;
+
+-- Function 4: Count Total Visitors for an Exhibition
+DELIMITER $$
+CREATE FUNCTION fn_exhibition_visitor_count(p_exhibition_id INT) 
+RETURNS INT
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE visitor_count INT;
+    SELECT COUNT(DISTINCT visitor_id) INTO visitor_count
+    FROM Visitor_Exhibition
+    WHERE exhibition_id = p_exhibition_id;
+    RETURN COALESCE(visitor_count, 0);
+END $$
+DELIMITER ;
+
+DROP FUNCTION IF EXISTS museum_db.fn_exhibition_duration_days;
+DROP FUNCTION IF EXISTS museum_db.fn_get_artifact_type;
+DROP FUNCTION IF EXISTS museum_db.fn_avg_salary_by_museum;
+DROP FUNCTION IF EXISTS museum_db.fn_exhibition_visitor_count;
+
+commit;
+
+-- =====================================================
 -- SCRIPT COMPLETE
 -- =====================================================

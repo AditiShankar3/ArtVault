@@ -11,7 +11,7 @@ const port = 3001; // This will be our backend server port
 const dbConfig = {
   host: 'localhost', // e.g., 'localhost'
   user: 'museum',
-  password: '123',
+  password: 'ArtVault',
   database: 'museum_db',
 };
 
